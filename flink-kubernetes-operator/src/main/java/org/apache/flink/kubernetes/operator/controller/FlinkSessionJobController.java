@@ -149,6 +149,7 @@ public class FlinkSessionJobController
             EventSourceContext<FlinkSessionJob> eventSourceContext) {
         Preconditions.checkNotNull(controllerConfig, "Controller config cannot be null");
         Set<String> effectiveNamespaces = controllerConfig.getEffectiveNamespaces();
+        LOG.info("prepareEventSources for " + effectiveNamespaces.toString());
         if (effectiveNamespaces.isEmpty()) {
             return List.of(
                     createFlinkDepInformerEventSource(
@@ -171,6 +172,7 @@ public class FlinkSessionJobController
             FilterWatchListDeletable<FlinkDeployment, KubernetesResourceList<FlinkDeployment>>
                     filteredClient,
             String name) {
+        LOG.info("createFlinkDepInformerEventSource 2 for " + name);
         return new InformerEventSource<>(
                 filteredClient.runnableInformer(0),
                 primaryResourceRetriever(),
@@ -194,7 +196,11 @@ public class FlinkSessionJobController
      */
     private PrimaryResourcesRetriever<FlinkDeployment> primaryResourceRetriever() {
         return flinkDeployment -> {
+            LOG.info(
+                    "Starting primaryResourceRetriever for "
+                            + flinkDeployment.getMetadata().getName());
             var namespace = flinkDeployment.getMetadata().getNamespace();
+            LOG.info("Namespace is " + namespace);
             var informer =
                     controllerConfig.getEffectiveNamespaces().isEmpty()
                             ? informers.get(ALL_NAMESPACE)
@@ -203,6 +209,7 @@ public class FlinkSessionJobController
             var sessionJobs =
                     informer.getIndexer()
                             .byIndex(CLUSTER_ID_INDEX, flinkDeployment.getMetadata().getName());
+            LOG.info("Number of job is " + sessionJobs.size());
             var resourceIDs = new HashSet<ResourceID>();
             for (FlinkSessionJob sessionJob : sessionJobs) {
                 resourceIDs.add(
@@ -236,6 +243,7 @@ public class FlinkSessionJobController
         } else {
             var informers = new HashMap<String, SharedIndexInformer<FlinkSessionJob>>();
             for (String effectiveNamespace : effectiveNamespaces) {
+                LOG.info("Create informer for " + effectiveNamespace);
                 informers.put(
                         effectiveNamespace,
                         kubernetesClient
@@ -249,7 +257,14 @@ public class FlinkSessionJobController
     }
 
     private Map<String, Function<FlinkSessionJob, List<String>>> clusterToSessionJobIndexer() {
-        return Map.of(CLUSTER_ID_INDEX, sessionJob -> List.of(sessionJob.getSpec().getClusterId()));
+        return Map.of(
+                CLUSTER_ID_INDEX,
+                sessionJob -> {
+                    LOG.info(
+                            "clusterToSessionJobIndexer for "
+                                    + sessionJob.getSpec().getClusterId());
+                    return List.of(sessionJob.getSpec().getClusterId());
+                });
     }
 
     private Optional<String> validateSessionJob(FlinkSessionJob sessionJob, Context context) {
