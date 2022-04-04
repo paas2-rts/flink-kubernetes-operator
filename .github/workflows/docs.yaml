@@ -21,9 +21,18 @@ on:
   workflow_dispatch:
 jobs:
   build-documentation:
+    if: github.repository == 'apache/flink-kubernetes-operator'
     runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      matrix:
+        branch:
+          - main
+          - release-0.1
     steps:
-      - uses: actions/checkout@main
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ matrix.branch }}
       - name: Set branch environment variable
         run: |
           git branch --show-current
@@ -33,7 +42,7 @@ jobs:
           echo "flink_branch=${currentBranch}" >> ${GITHUB_ENV}
           if [ "${currentBranch} = "main" ]; then
             echo "flink_alias=release-1.0" >> ${GITHUB_ENV}
-          elif [ "${currentBranch} = "release-1.14" ]; then
+          elif [ "${currentBranch} = "release-0.1" ]; then
             echo "flink_alias=stable" >> ${GITHUB_ENV}
           fi
       - name: Build documentation

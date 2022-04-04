@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -16,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.kubernetes.operator.observer;
+package org.apache.flink.kubernetes.operator.observer.deployment;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.kubernetes.operator.config.FlinkOperatorConfiguration;
@@ -24,6 +23,7 @@ import org.apache.flink.kubernetes.operator.crd.FlinkDeployment;
 import org.apache.flink.kubernetes.operator.crd.status.FlinkDeploymentStatus;
 import org.apache.flink.kubernetes.operator.crd.status.JobStatus;
 import org.apache.flink.kubernetes.operator.crd.status.SavepointInfo;
+import org.apache.flink.kubernetes.operator.observer.SavepointFetchResult;
 import org.apache.flink.kubernetes.operator.reconciler.ReconciliationUtils;
 import org.apache.flink.kubernetes.operator.service.FlinkService;
 import org.apache.flink.kubernetes.operator.utils.SavepointUtils;
@@ -38,41 +38,38 @@ import java.util.List;
 import java.util.concurrent.TimeoutException;
 
 /** The observer of {@link org.apache.flink.kubernetes.operator.config.Mode#APPLICATION} cluster. */
-public class JobObserver extends BaseObserver {
+public class ApplicationObserver extends AbstractDeploymentObserver {
 
-    public JobObserver(
-            FlinkService flinkService, FlinkOperatorConfiguration operatorConfiguration) {
-        super(flinkService, operatorConfiguration);
+    public ApplicationObserver(
+            FlinkService flinkService,
+            FlinkOperatorConfiguration operatorConfiguration,
+            Configuration flinkConfig) {
+        super(flinkService, operatorConfiguration, flinkConfig);
     }
 
     @Override
-    public void observe(FlinkDeployment flinkApp, Context context, Configuration effectiveConfig) {
-        if (!isClusterReady(flinkApp)) {
-            observeJmDeployment(flinkApp, context, effectiveConfig);
+    public void observeIfClusterReady(
+            FlinkDeployment flinkApp, Context context, Configuration lastValidatedConfig) {
+        boolean jobFound = observeFlinkJobStatus(flinkApp, context, lastValidatedConfig);
+        if (jobFound) {
+            observeSavepointStatus(flinkApp, lastValidatedConfig);
         }
-        if (isClusterReady(flinkApp)) {
-            boolean jobFound = observeFlinkJobStatus(flinkApp, context, effectiveConfig);
-            if (jobFound) {
-                observeSavepointStatus(flinkApp, effectiveConfig);
-            }
-        }
-        clearErrorsIfJobManagerDeploymentNotInErrorStatus(flinkApp);
     }
 
     private boolean observeFlinkJobStatus(
-            FlinkDeployment flinkApp, Context context, Configuration effectiveConfig) {
+            FlinkDeployment flinkApp, Context context, Configuration lastValidatedConfig) {
         logger.info("Observing job status");
         FlinkDeploymentStatus flinkAppStatus = flinkApp.getStatus();
         String previousJobStatus = flinkAppStatus.getJobStatus().getState();
         Collection<JobStatusMessage> clusterJobStatuses;
         try {
-            clusterJobStatuses = flinkService.listJobs(effectiveConfig);
+            clusterJobStatuses = flinkService.listJobs(lastValidatedConfig);
         } catch (Exception e) {
             logger.error("Exception while listing jobs", e);
             flinkAppStatus.getJobStatus().setState(JOB_STATE_UNKNOWN);
             if (e instanceof TimeoutException) {
                 // check for problems with the underlying deployment
-                observeJmDeployment(flinkApp, context, effectiveConfig);
+                observeJmDeployment(flinkApp, context, lastValidatedConfig);
             }
             return false;
         }
@@ -111,7 +108,8 @@ public class JobObserver extends BaseObserver {
         return status.getState();
     }
 
-    private void observeSavepointStatus(FlinkDeployment flinkApp, Configuration effectiveConfig) {
+    private void observeSavepointStatus(
+            FlinkDeployment flinkApp, Configuration lastValidatedConfig) {
         SavepointInfo savepointInfo = flinkApp.getStatus().getJobStatus().getSavepointInfo();
         if (!SavepointUtils.savepointInProgress(flinkApp)) {
             logger.debug("Savepoint not in progress");
@@ -121,7 +119,7 @@ public class JobObserver extends BaseObserver {
 
         SavepointFetchResult savepointFetchResult;
         try {
-            savepointFetchResult = flinkService.fetchSavepointInfo(flinkApp, effectiveConfig);
+            savepointFetchResult = flinkService.fetchSavepointInfo(flinkApp, lastValidatedConfig);
         } catch (Exception e) {
             logger.error("Exception while fetching savepoint info", e);
             return;

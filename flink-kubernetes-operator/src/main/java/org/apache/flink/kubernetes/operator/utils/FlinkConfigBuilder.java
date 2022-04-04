@@ -30,8 +30,11 @@ import org.apache.flink.kubernetes.configuration.KubernetesDeploymentTarget;
 import org.apache.flink.kubernetes.operator.crd.FlinkDeployment;
 import org.apache.flink.kubernetes.operator.crd.spec.FlinkDeploymentSpec;
 import org.apache.flink.kubernetes.operator.crd.spec.Resource;
+import org.apache.flink.kubernetes.operator.crd.spec.UpgradeMode;
+import org.apache.flink.streaming.api.environment.ExecutionCheckpointingOptions;
 import org.apache.flink.util.StringUtils;
 
+import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.internal.SerializationUtils;
 
@@ -40,6 +43,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -52,13 +56,20 @@ import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOGBACK_NA
 
 /** Builder to get effective flink config from {@link FlinkDeployment}. */
 public class FlinkConfigBuilder {
-    private final FlinkDeployment deploy;
+    private final ObjectMeta meta;
     private final FlinkDeploymentSpec spec;
     private final Configuration effectiveConfig;
 
+    public static final Duration DEFAULT_CHECKPOINTING_INTERVAL = Duration.ofMinutes(5);
+
     public FlinkConfigBuilder(FlinkDeployment deploy, Configuration flinkConfig) {
-        this.deploy = deploy;
-        this.spec = this.deploy.getSpec();
+        this(deploy.getMetadata(), deploy.getSpec(), flinkConfig);
+    }
+
+    public FlinkConfigBuilder(
+            ObjectMeta metadata, FlinkDeploymentSpec spec, Configuration flinkConfig) {
+        this.meta = metadata;
+        this.spec = spec;
         this.effectiveConfig = new Configuration(flinkConfig);
     }
 
@@ -89,6 +100,17 @@ public class FlinkConfigBuilder {
             effectiveConfig.set(
                     REST_SERVICE_EXPOSED_TYPE,
                     KubernetesConfigOptions.ServiceExposedType.ClusterIP);
+        }
+
+        // With last-state upgrade mode, set the default value of 'execution.checkpointing.interval'
+        // to 5 minutes when HA is enabled.
+        if (spec.getJob() != null
+                && spec.getJob().getUpgradeMode() == UpgradeMode.LAST_STATE
+                && !effectiveConfig.contains(
+                        ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL)) {
+            effectiveConfig.set(
+                    ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL,
+                    DEFAULT_CHECKPOINTING_INTERVAL);
         }
         return this;
     }
@@ -195,8 +217,8 @@ public class FlinkConfigBuilder {
     public Configuration build() {
 
         // Set cluster config
-        final String namespace = deploy.getMetadata().getNamespace();
-        final String clusterId = deploy.getMetadata().getName();
+        final String namespace = meta.getNamespace();
+        final String clusterId = meta.getName();
         effectiveConfig.setString(KubernetesConfigOptions.NAMESPACE, namespace);
         effectiveConfig.setString(KubernetesConfigOptions.CLUSTER_ID, clusterId);
         return effectiveConfig;
@@ -204,7 +226,13 @@ public class FlinkConfigBuilder {
 
     public static Configuration buildFrom(FlinkDeployment dep, Configuration flinkConfig)
             throws IOException, URISyntaxException {
-        return new FlinkConfigBuilder(dep, flinkConfig)
+        return buildFrom(dep.getMetadata(), dep.getSpec(), flinkConfig);
+    }
+
+    public static Configuration buildFrom(
+            ObjectMeta meta, FlinkDeploymentSpec spec, Configuration flinkConfig)
+            throws IOException, URISyntaxException {
+        return new FlinkConfigBuilder(meta, spec, flinkConfig)
                 .applyFlinkConfiguration()
                 .applyLogConfiguration()
                 .applyImage()

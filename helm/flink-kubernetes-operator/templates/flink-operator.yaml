@@ -67,6 +67,8 @@ spec:
               value: /opt/flink-operator/conf
             - name: LOG_CONFIG
               value: -Dlog4j.configurationFile=/opt/flink-operator/conf/log4j2.properties
+            - name: JVM_ARGS
+              value: {{ .Values.jvmArgs.operator }}
             - name: FLINK_OPERATOR_WATCH_NAMESPACES
               value: {{ join "," .Values.watchNamespaces  }}
           volumeMounts:
@@ -74,6 +76,9 @@ spec:
               mountPath: /opt/flink-operator/conf
             - name: flink-default-config-volume
               mountPath: /opt/flink/conf
+            {{- if .Values.operatorVolumeMounts.create }}
+                {{- toYaml .Values.operatorVolumeMounts.data | nindent 12 }}
+            {{- end }}
         {{- if .Values.webhook.create }}
         - name: flink-webhook
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -99,6 +104,8 @@ spec:
               value: "9443"
             - name: LOG_CONFIG
               value: -Dlog4j.configurationFile=/opt/flink-operator/conf/log4j2.properties
+            - name: JVM_ARGS
+              value: {{ .Values.jvmArgs.webhook }}
           volumeMounts:
           - name: keystore
             mountPath: "/certs"
@@ -123,6 +130,9 @@ spec:
                 path: flink-conf.yaml
               - key: log4j-console.properties
                 path: log4j-console.properties
+        {{- if .Values.operatorVolumes.create }}
+              {{- toYaml .Values.operatorVolumes.data | nindent 8 }}
+        {{- end }}
         {{- if .Values.webhook.create }}
         - name: keystore
           secret:
