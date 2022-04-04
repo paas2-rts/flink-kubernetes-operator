@@ -56,6 +56,7 @@ import static org.apache.flink.kubernetes.utils.Constants.CONFIG_FILE_LOGBACK_NA
 
 /** Builder to get effective flink config from {@link FlinkDeployment}. */
 public class FlinkConfigBuilder {
+    private final FlinkDeployment deploy;
     private final ObjectMeta meta;
     private final FlinkDeploymentSpec spec;
     private final Configuration effectiveConfig;
@@ -63,14 +64,18 @@ public class FlinkConfigBuilder {
     public static final Duration DEFAULT_CHECKPOINTING_INTERVAL = Duration.ofMinutes(5);
 
     public FlinkConfigBuilder(FlinkDeployment deploy, Configuration flinkConfig) {
-        this(deploy.getMetadata(), deploy.getSpec(), flinkConfig);
+        this(deploy.getMetadata(), deploy.getSpec(), flinkConfig, deploy);
     }
 
     public FlinkConfigBuilder(
-            ObjectMeta metadata, FlinkDeploymentSpec spec, Configuration flinkConfig) {
+            ObjectMeta metadata,
+            FlinkDeploymentSpec spec,
+            Configuration flinkConfig,
+            FlinkDeployment deploy) {
         this.meta = metadata;
         this.spec = spec;
         this.effectiveConfig = new Configuration(flinkConfig);
+        this.deploy = deploy;
     }
 
     public FlinkConfigBuilder applyImage() {
@@ -226,13 +231,13 @@ public class FlinkConfigBuilder {
 
     public static Configuration buildFrom(FlinkDeployment dep, Configuration flinkConfig)
             throws IOException, URISyntaxException {
-        return buildFrom(dep.getMetadata(), dep.getSpec(), flinkConfig);
+        return buildFrom(dep, dep.getSpec(), flinkConfig);
     }
 
     public static Configuration buildFrom(
-            ObjectMeta meta, FlinkDeploymentSpec spec, Configuration flinkConfig)
+            FlinkDeployment dep, FlinkDeploymentSpec spec, Configuration flinkConfig)
             throws IOException, URISyntaxException {
-        return new FlinkConfigBuilder(meta, spec, flinkConfig)
+        return new FlinkConfigBuilder(dep.getMetadata(), spec, flinkConfig, dep)
                 .applyFlinkConfiguration()
                 .applyLogConfiguration()
                 .applyImage()
