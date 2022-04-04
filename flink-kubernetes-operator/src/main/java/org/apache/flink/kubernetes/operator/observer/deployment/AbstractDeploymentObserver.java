@@ -198,8 +198,7 @@ public abstract class AbstractDeploymentObserver implements Observer<FlinkDeploy
         }
 
         Configuration lastValidatedConfig =
-                FlinkUtils.getEffectiveConfig(
-                        flinkApp.getMetadata(), lastReconciledSpec, this.flinkConfig);
+                FlinkUtils.getEffectiveConfig(flinkApp, lastReconciledSpec, this.flinkConfig);
         if (!isClusterReady(flinkApp)) {
             observeJmDeployment(flinkApp, context, lastValidatedConfig);
         }

@@ -34,7 +34,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.fabric8.kubernetes.api.model.ConfigMapList;
-import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.api.model.Service;
@@ -63,14 +62,14 @@ public class FlinkUtils {
 
     public static Configuration getEffectiveConfig(
             FlinkDeployment flinkApp, Configuration flinkConfig) {
-        return getEffectiveConfig(flinkApp.getMetadata(), flinkApp.getSpec(), flinkConfig);
+        return getEffectiveConfig(flinkApp, flinkApp.getSpec(), flinkConfig);
     }
 
     public static Configuration getEffectiveConfig(
-            ObjectMeta meta, FlinkDeploymentSpec spec, Configuration flinkConfig) {
+            FlinkDeployment flinkApp, FlinkDeploymentSpec spec, Configuration flinkConfig) {
         try {
             final Configuration effectiveConfig =
-                    FlinkConfigBuilder.buildFrom(meta, spec, flinkConfig);
+                    FlinkConfigBuilder.buildFrom(flinkApp, spec, flinkConfig);
             LOG.debug("Effective config: {}", effectiveConfig);
             return effectiveConfig;
         } catch (Exception e) {
