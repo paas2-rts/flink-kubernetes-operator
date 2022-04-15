@@ -55,6 +55,7 @@ COPY --from=build /app/flink-kubernetes-webhook/target/$WEBHOOK_JAR .
 COPY --from=build /app/flink-kubernetes-shaded/target/$FLINK_KUBERNETES_SHADED_JAR .
 COPY --from=build /app/flink-kubernetes-operator/target/plugins $FLINK_HOME/plugins
 COPY docker-entrypoint.sh /
+COPY beam-app-bundled-1.0.0.jar /artifacts/
 
 RUN chown -R flink:flink $FLINK_HOME && \
     chown flink:flink $OPERATOR_JAR && \
