@@ -17,14 +17,10 @@
 
 package org.apache.flink.kubernetes.operator.utils;
 
-import org.apache.flink.configuration.ConfigOption;
-import org.apache.flink.configuration.Configuration;
-import org.apache.flink.configuration.CoreOptions;
-import org.apache.flink.configuration.DeploymentOptions;
-import org.apache.flink.configuration.JobManagerOptions;
-import org.apache.flink.configuration.MemorySize;
-import org.apache.flink.configuration.PipelineOptions;
-import org.apache.flink.configuration.TaskManagerOptions;
+import io.fabric8.kubernetes.api.model.ObjectMeta;
+import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.client.internal.SerializationUtils;
+import org.apache.flink.configuration.*;
 import org.apache.flink.kubernetes.configuration.KubernetesConfigOptions;
 import org.apache.flink.kubernetes.configuration.KubernetesDeploymentTarget;
 import org.apache.flink.kubernetes.operator.crd.FlinkDeployment;
@@ -33,10 +29,6 @@ import org.apache.flink.kubernetes.operator.crd.spec.Resource;
 import org.apache.flink.kubernetes.operator.crd.spec.UpgradeMode;
 import org.apache.flink.streaming.api.environment.ExecutionCheckpointingOptions;
 import org.apache.flink.util.StringUtils;
-
-import io.fabric8.kubernetes.api.model.ObjectMeta;
-import io.fabric8.kubernetes.api.model.Pod;
-import io.fabric8.kubernetes.client.internal.SerializationUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -63,6 +55,13 @@ public class FlinkConfigBuilder {
     private final Configuration effectiveConfig;
 
     public static final Duration DEFAULT_CHECKPOINTING_INTERVAL = Duration.ofMinutes(5);
+
+    private static final String API_VERSION = "apiVersion";
+    private static final String KIND = "kind";
+    private static final String NAME = "name";
+    private static final String UID = "uid";
+    private static final String BLOCK_OWNER_DELETION = "blockOwnerDeletion";
+    private static final String CONTROLLER = "controller";
 
     public FlinkConfigBuilder(FlinkDeployment deploy, Configuration flinkConfig) {
         this(deploy.getMetadata(), deploy.getSpec(), flinkConfig, deploy);
@@ -217,12 +216,12 @@ public class FlinkConfigBuilder {
     public FlinkConfigBuilder applyOwnerReference() {
         Map<String, String> ownerReference =
                 Map.of(
-                        "apiVersion", deploy.getApiVersion(),
-                        "kind", deploy.getKind(),
-                        "name", deploy.getMetadata().getName(),
-                        "uid", deploy.getMetadata().getUid(),
-                        "blockOwnerDeletion", "false",
-                        "controller", "false");
+                        API_VERSION, deploy.getApiVersion(),
+                        KIND, deploy.getKind(),
+                        NAME, meta.getName(),
+                        UID, meta.getUid(),
+                        BLOCK_OWNER_DELETION, "false",
+                        CONTROLLER, "false");
         effectiveConfig.set(
                 KubernetesConfigOptions.JOB_MANAGER_OWNER_REFERENCE, List.of(ownerReference));
         return this;
