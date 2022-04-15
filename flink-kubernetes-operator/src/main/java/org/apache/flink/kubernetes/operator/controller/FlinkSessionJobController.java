@@ -61,8 +61,8 @@ import java.util.stream.Collectors;
 @ControllerConfiguration
 public class FlinkSessionJobController
         implements io.javaoperatorsdk.operator.api.reconciler.Reconciler<FlinkSessionJob>,
-        ErrorStatusHandler<FlinkSessionJob>,
-        EventSourceInitializer<FlinkSessionJob> {
+                ErrorStatusHandler<FlinkSessionJob>,
+                EventSourceInitializer<FlinkSessionJob> {
 
     private static final Logger LOG = LoggerFactory.getLogger(FlinkSessionJobController.class);
     private static final String CLUSTER_ID_INDEX = "clusterId_index";
